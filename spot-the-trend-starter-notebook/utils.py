@@ -6,6 +6,169 @@ from sympy import Interval, Union, Intersection
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
+###My added functions
+
+def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    The function for preprocessing the data.
+    Right now, only selects the first 1576799 elements.
+
+    Args:
+        df: The dataframe to be preprocessed.
+
+    Returns:
+        df: The preprocessed dataframe.
+    """
+    return df[:1576799]
+
+
+def read_data(path:str, count: int, is_train: bool) -> List[pd.DataFrame]:
+    """
+    Uses a path string to read all the data in that directory.
+
+    Args:
+        path: The path of the desired directory.
+        count: The number of the files to read.
+        is_train: A boolean indicating if we are reading a training data 
+        (we have both the data csv and intervals csv)
+
+    Returns:
+        A list of all the dataframes read.
+        If it's train data, the dataframe will also have a 'red' column.
+        If it's test data, the 'red' column will be entirely 0.
+    """
+
+    dir_list = os.listdir(path)
+    train_dir = []
+    for file in dir_list:
+        if not file.__contains__('intervals'):
+            train_dir.append(file)
+    data = []
+    counter = 0
+
+    # if the count variable is more than the number of data, use the maximum data available
+    if count > len(train_dir):
+        count = len(train_dir)
+
+    if is_train == True:
+        for file in train_dir:
+            interval = file.replace('.csv','_intervals.csv')
+            try:
+                intervals = pd.read_csv(path + "/" + interval)
+                ts = pd.read_csv(path + "/" + file ,sep="\t")
+                # clean the data
+                # right now, only cleans the NaNs in the 'y' column
+                ts = clean_data(ts)
+                # integrate the intervals to the dataframe
+                data.append(integrate_intervals(ts,intervals))
+                print(file)
+            except: 
+                print('There was error reading the training data in the file: ',file)    
+            counter += 1
+            if counter >= count:
+                break
+
+    if is_train == False:
+        for file in train_dir:
+            try:
+                ts = pd.read_csv(path + "/" + file ,sep="\t")
+                # clean the data
+                # right now, only cleans the NaNs in the 'y' column
+                ts = clean_data(ts)
+                # integrate the intervals to the dataframe
+                ts['red'] = 0
+                data.append(ts)
+                print(file)
+            except: 
+                print("There was error reading the test data in the file: ",file)    
+            counter += 1
+            if counter >= count:
+                break
+    return data
+
+
+def integrate_intervals(ts: pd.DataFrame, intervals: pd.DataFrame) -> pd.DataFrame:
+    """
+    Integrate the intervals dataframe, to the timeseries (original dataframe)
+    by adding a 'red' column and flipping the values of shut-ins to 1.
+    Note: Is much faster than the method used in plot_well.
+
+    Args:
+        ts: The original dataframe.
+        intervals: The intervals dataframe with the columns 'start' and 'stop'
+
+    Returns:
+        df: The integrated dataframe.
+    """
+    ts['red'] = 0
+    for i in range(len(intervals)):
+        ts.loc[intervals['start'][i]:intervals['stop'][i],'red'] = 1
+    return ts
+
+
+def df_to_intervals(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extract the intervals from a dataframe with the 'red' column.
+
+    Args:
+        df: The integrated dataframe.
+
+    Returns:
+        intervals_df: a dataframe with two columns 'start' and 'stop' containing
+        the intervals values.
+    """
+    red = 0
+    intervals = []
+    print(len(intervals))
+    for i in range(len(df)):
+        if red == 0:
+            if df.loc[i,'red'] == 1:
+                intervals.append(i)
+                red = 1
+        if red == 1:
+            if df.loc[i,'red'] == 0:
+                intervals.append(i-1)
+                red = 0
+    # turn the intervals list into a dataframe
+    intervals_array = np.array(intervals).reshape(-1,2)
+    intervals_df = pd.DataFrame(intervals_array, columns = ['start', 'stop'])
+    return intervals_df
+
+
+def red_blue_intervals(df):
+    """
+    Will use an integrated dataframe, to give two red and blue dataframes.
+    Note: The index remains the same as the time
+    Args:
+        df: The integrated dataframe.
+
+    Returns:
+        red: The dataframe containing the red ys.
+        blue: The dataframe containing the blue ys.
+    """
+    # Extract the intervals from the dataframe
+    intervals = df_to_intervals(df)
+    # Just a change of name
+    ts = df
+    blue, red = [], []
+    # Append the first interval to blue
+    blue.append(ts.iloc[0:intervals['start'][0]])
+    # Append all the blue intervals
+    for i in range(len(intervals)-1):
+        blue.append(ts.iloc[intervals['stop'][i]:intervals['start'][i+1]])
+    # Append the last interval as blue
+    blue.append(ts.iloc[intervals['stop'][len(intervals)-1]:len(ts)])
+    # Append all the red intervals
+    for i in range(len(intervals)):
+        red.append(ts.iloc[intervals['start'][i]:intervals['stop'][i]])
+    # Concatinate the lists to a single dataframe
+    blue = pd.concat(blue, ignore_index=False)
+    red = pd.concat(red, ignore_index=False)
+    return red, blue
+
+###My added functions
+
+
 ###Data process
 class DataObject:
     """
@@ -476,6 +639,7 @@ def plot_well(intervals,data,start=0,end=1576800,title="Results",s=0.01):
       # Loop through each interval and set the label to 1 within the interval
       for start, stop in intervals:
         df.loc[start:stop - 1, 'label'] = 1
+        print(df)
 
       return df
 
