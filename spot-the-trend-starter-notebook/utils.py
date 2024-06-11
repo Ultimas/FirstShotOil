@@ -19,7 +19,10 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         df: The preprocessed dataframe.
     """
-    return df[:1576799]
+    df = df[:1576799]
+    # Drop rows where 'y' column is NaN
+    df = df.dropna(subset=['y'])
+    return df
 
 
 def read_data(path:str, count: int, is_train: bool) -> List[pd.DataFrame]:
@@ -59,6 +62,10 @@ def read_data(path:str, count: int, is_train: bool) -> List[pd.DataFrame]:
                 # clean the data
                 # right now, only cleans the NaNs in the 'y' column
                 ts = clean_data(ts)
+                # Identify columns with 'Unnamed:' in their names
+                unnamed_columns = ts.columns.str.contains('^Unnamed')
+                # Drop the unnamed columns
+                ts = ts.loc[:, ~unnamed_columns]
                 # integrate the intervals to the dataframe
                 data.append(integrate_intervals(ts,intervals))
                 print(file)
@@ -78,6 +85,10 @@ def read_data(path:str, count: int, is_train: bool) -> List[pd.DataFrame]:
                 # integrate the intervals to the dataframe
                 ts['red'] = 0
                 ts["name"] = file
+                # Identify columns with 'Unnamed:' in their names
+                unnamed_columns = ts.columns.str.contains('^Unnamed')
+                # Drop the unnamed columns
+                ts = ts.loc[:, ~unnamed_columns]
                 data.append(ts)
                 print(file)
             except: 
@@ -120,7 +131,7 @@ def df_to_intervals(df: pd.DataFrame) -> pd.DataFrame:
     """
     red = 0
     intervals = []
-    print(len(intervals))
+    print('len of intervals is:' ,len(intervals))
     for i in range(len(df)):
         if red == 0:
             if df.loc[i,'red'] == 1:
