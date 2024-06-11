@@ -5,6 +5,8 @@ import numpy as np
 from sympy import Interval, Union, Intersection
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+from sklearn.preprocessing import StandardScaler
+import gc
 
 ###My added functions
 
@@ -20,8 +22,21 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
         df: The preprocessed dataframe.
     """
     df = df[:1576799]
+
     # Drop rows where 'y' column is NaN
     df = df.dropna(subset=['y'])
+
+    # Extract the 'y' column
+    y_column = df['y']
+
+    # Apply Z-score normalization to normalize the 'y' column
+    scaler = StandardScaler()
+    normalized_y = scaler.fit_transform(y_column.values.reshape(-1, 1))  # Reshape to 2D array for StandardScaler
+    normalized_y = normalized_y.flatten()  # Flatten the 2D array back to 1D
+
+    # Replace the original 'y' column with the normalized values
+    df['y'] = normalized_y
+    
     return df
 
 
@@ -163,6 +178,8 @@ def red_blue_intervals(df :pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
     # Just a change of name
     ts = df
     blue, red = [], []
+    if len(intervals) == 0:
+        return None, df
     # Append the first interval to blue
     blue.append(ts.iloc[0:intervals['start'][0]])
     # Append all the blue intervals
@@ -177,6 +194,27 @@ def red_blue_intervals(df :pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
     blue = pd.concat(blue, ignore_index=False)
     red = pd.concat(red, ignore_index=False)
     return red, blue
+
+def visualize_well(df: pd.DataFrame) -> None:
+    """
+    Visualize one dataframe.
+
+    Args:
+        df: The dataframe.
+    
+    Returns:
+        None.
+    """
+    r, b = red_blue_intervals(df)
+    plt.scatter(b.index,b['y'], s=0.001)
+    if r is not None:
+        plt.scatter(r.index,r['y'],c='r', s=0.001)
+    #plt.title(file)
+    plt.show()
+    plt.close('all')
+    gc.collect()
+
+#def visualaze_dataset()
 
 ###My added functions
 
