@@ -77,6 +77,7 @@ def read_data(path:str, count: int, is_train: bool) -> List[pd.DataFrame]:
                 ts = clean_data(ts)
                 # integrate the intervals to the dataframe
                 ts['red'] = 0
+                ts["name"] = file
                 data.append(ts)
                 print(file)
             except: 
@@ -135,7 +136,7 @@ def df_to_intervals(df: pd.DataFrame) -> pd.DataFrame:
     return intervals_df
 
 
-def red_blue_intervals(df):
+def red_blue_intervals(df :pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
     """
     Will use an integrated dataframe, to give two red and blue dataframes.
     Note: The index remains the same as the time
